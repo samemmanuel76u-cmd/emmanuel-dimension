@@ -3,33 +3,355 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Emmanuel Dimension</title>
+  <title>Emmanuel Dimension - Blog & Discussion</title>
   <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <!-- Babel pour compiler JSX dans le navigateur -->
+  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Tailwind CSS pour le style -->
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
+<body class="bg-slate-900 text-slate-100 min-h-screen">
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
+
+    const DISPOSABLE_DOMAINS = [
+      'yopmail.com', 'mailinator.com', '10minutemail.com', 'tempmail.com', 
+      'guerrillamail.com', 'dispostable.com', 'getnada.com', 'trashmail.com'
+    ];
 
     function App() {
-      return (
-        <div class="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-          <h1 class="text-4xl font-bold text-indigo-500 mb-4">Emmanuel Dimension</h1>
-          <p class="text-gray-300 max-w-md mb-6">
-            Bienvenue sur la plateforme officielle Emmanuel Dimension ! Le blogue et le canal de discussion sont en cours d'initialisation.
-          </p>
-          <div class="p-4 bg-gray-800 rounded-lg border border-gray-700">
-            <p class="text-green-400 font-semibold">✓ Déploiement Vercel réussi !</p>
+      const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('ed_user')) || null);
+      const [activeTab, setActiveTab] = useState('chat');
+      
+      const [isRegister, setIsRegister] = useState(false);
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const [confirmPassword, setConfirmPassword] = useState('');
+      const [username, setUsername] = useState('');
+      const [authError, setAuthError] = useState('');
+
+      const [users, setUsers] = useState(() => JSON.parse(localStorage.getItem('ed_users')) || []);
+      const [messages, setMessages] = useState(() => JSON.parse(localStorage.getItem('ed_messages')) || [
+        { id: 1, sender: 'Admin', text: 'Bienvenue sur la communauté Emmanuel Dimension !', photo: null, time: '12:00' }
+      ]);
+      const [blogs, setBlogs] = useState(() => JSON.parse(localStorage.getItem('ed_blogs')) || [
+        { id: 1, title: 'Bienvenue sur Emmanuel Dimension', content: 'Ceci est le premier article de notre communauté.', author: 'Admin', date: '2026-10-22' }
+      ]);
+
+      const [newMessage, setNewMessage] = useState('');
+      const [selectedImage, setSelectedImage] = useState(null);
+      const [zoomImage, setZoomImage] = useState(null);
+      const chatEndRef = useRef(null);
+
+      const [newBlogTitle, setNewBlogTitle] = useState('');
+      const [newBlogContent, setNewBlogContent] = useState('');
+      const [newBlogImage, setNewBlogImage] = useState('');
+      const [showBlogModal, setShowBlogModal] = useState(false);
+
+      useEffect(() => {
+        localStorage.setItem('ed_user', JSON.stringify(user));
+      }, [user]);
+
+      useEffect(() => {
+        localStorage.setItem('ed_messages', JSON.stringify(messages));
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, [messages]);
+
+      useEffect(() => {
+        localStorage.setItem('ed_blogs', JSON.stringify(blogs));
+      }, [blogs]);
+
+      const isDisposableEmail = (emailStr) => {
+        const domain = emailStr.split('@')[1]?.toLowerCase();
+        return DISPOSABLE_DOMAINS.includes(domain);
+      };
+
+      const handleAuth = (e) => {
+        e.preventDefault();
+        setAuthError('');
+
+        if (!email.includes('@')) {
+          setAuthError('Veuillez entrer une adresse e-mail valide.');
+          return;
+        }
+
+        if (isDisposableEmail(email)) {
+          setAuthError('Les e-mails jetables (ex: yopmail) ne sont pas autorisés.');
+          return;
+        }
+
+        if (password.length < 6) {
+          setAuthError('Le mot de passe doit contenir au moins 6 caractères.');
+          return;
+        }
+
+        if (isRegister) {
+          if (password !== confirmPassword) {
+            setAuthError('Les mots de passe ne correspondent pas.');
+            return;
+          }
+          if (!username.trim()) {
+            setAuthError('Veuillez entrer un nom d\'utilisateur.');
+            return;
+          }
+
+          const existing = users.find(u => u.email === email);
+          if (existing) {
+            setAuthError('Cet e-mail est déjà utilisé.');
+            return;
+          }
+
+          const newUser = { id: Date.now(), email, password, username };
+          const updatedUsers = [...users, newUser];
+          setUsers(updatedUsers);
+          localStorage.setItem('ed_users', JSON.stringify(updatedUsers));
+          setUser(newUser);
+        } else {
+          const found = users.find(u => u.email === email && u.password === password);
+          if (!found) {
+            setAuthError('E-mail ou mot de passe incorrect.');
+            return;
+          }
+          setUser(found);
+        }
+      };
+
+      const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => setSelectedImage(reader.result);
+          reader.readAsDataURL(file);
+        }
+      };
+
+      const handleSendMessage = (e) => {
+        e.preventDefault();
+        if (!newMessage.trim() && !selectedImage) return;
+
+        const msg = {
+          id: Date.now(),
+          sender: user.username,
+          text: newMessage,
+          photo: selectedImage,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        setMessages([...messages, msg]);
+        setNewMessage('');
+        setSelectedImage(null);
+      };
+
+      const handleAddBlog = (e) => {
+        e.preventDefault();
+        if (!newBlogTitle || !newBlogContent) return;
+
+        const article = {
+          id: Date.now(),
+          title: newBlogTitle,
+          content: newBlogContent,
+          image: newBlogImage || 'https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=600',
+          author: user.username,
+          date: new Date().toISOString().split('T')[0]
+        };
+
+        setBlogs([article, ...blogs]);
+        setNewBlogTitle('');
+        setNewBlogContent('');
+        setNewBlogImage('');
+        setShowBlogModal(false);
+      };
+
+      if (!user) {
+        return (
+          <div className="flex items-center justify-center min-h-screen p-4 bg-slate-950">
+            <div className="w-full max-w-md bg-slate-900 p-8 rounded-2xl shadow-xl border border-slate-800">
+              <div className="text-center mb-6">
+                <h1 className="text-3xl font-bold text-indigo-400">Emmanuel Dimension</h1>
+                <p className="text-slate-400 text-sm mt-1">Espace Membres & Canal Communautaire</p>
+              </div>
+
+              {authError && (
+                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-xs text-center">
+                  {authError}
+                </div>
+              )}
+
+              <form onSubmit={handleAuth} className="space-y-4">
+                {isRegister && (
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Nom d'utilisateur</label>
+                    <input 
+                      type="text" required
+                      className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:outline-none focus:border-indigo-500 text-white"
+                      value={username} onChange={e => setUsername(e.target.value)}
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Adresse E-mail</label>
+                  <input 
+                    type="email" required
+                    className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:outline-none focus:border-indigo-500 text-white"
+                    value={email} onChange={e => setEmail(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Mot de passe</label>
+                  <input 
+                    type="password" required
+                    className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:outline-none focus:border-indigo-500 text-white"
+                    value={password} onChange={e => setPassword(e.target.value)}
+                  />
+                </div>
+                {isRegister && (
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Confirmer le mot de passe</label>
+                    <input 
+                      type="password" required
+                      className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:outline-none focus:border-indigo-500 text-white"
+                      value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                <button type="submit" className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 font-semibold rounded-lg transition text-white">
+                  {isRegister ? "S'inscrire" : "Se connecter"}
+                </button>
+              </form>
+
+              <div className="mt-6 text-center">
+                <button 
+                  onClick={() => { setIsRegister(!isRegister); setAuthError(''); }} 
+                  className="text-xs text-indigo-400 hover:underline"
+                >
+                  {isRegister ? "Déjà un compte ? Connexion" : "Pas de compte ? S'inscrire"}
+                </button>
+              </div>
+            </div>
           </div>
+        );
+      }
+
+      return (
+        <div className="flex flex-col h-screen">
+          <header className="bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center justify-between">
+            <span className="text-lg font-bold text-indigo-400">Emmanuel Dimension</span>
+
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => setActiveTab('chat')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${activeTab === 'chat' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                Discussion
+              </button>
+              <button 
+                onClick={() => setActiveTab('blog')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${activeTab === 'blog' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                Blogue
+              </button>
+              <button onClick={() => setUser(null)} className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-[10px] rounded-lg text-red-300">
+                Sortir
+              </button>
+            </div>
+          </header>
+
+          {activeTab === 'chat' && (
+            <div className="flex-1 flex flex-col bg-slate-950 overflow-hidden">
+              <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                {messages.map((m) => {
+                  const isMe = m.sender === user.username;
+                  return (
+                    <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs p-3 rounded-2xl ${isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-100 rounded-bl-none'}`}>
+                        <div className="text-[10px] font-semibold text-indigo-200 mb-1">{m.sender}</div>
+                        {m.photo && (
+                          <img 
+                            src={m.photo} 
+                            onClick={() => setZoomImage(m.photo)} 
+                            className="rounded-lg mb-2 max-h-48 object-cover cursor-pointer"
+                          />
+                        )}
+                        {m.text && <p className="text-xs">{m.text}</p>}
+                        <div className="text-[9px] opacity-70 text-right mt-1">{m.time}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={chatEndRef} />
+              </div>
+
+              {selectedImage && (
+                <div className="p-2 bg-slate-900 border-t border-slate-800 flex items-center space-x-2">
+                  <img src={selectedImage} className="w-10 h-10 object-cover rounded" />
+                  <button onClick={() => setSelectedImage(null)} className="text-red-400 text-xs">Supprimer</button>
+                </div>
+              )}
+
+              <form onSubmit={handleSendMessage} className="p-3 bg-slate-900 border-t border-slate-800 flex items-center space-x-2">
+                <input type="file" accept="image/*" onChange={handleImageUpload} id="img-upload" className="hidden" />
+                <label htmlFor="img-upload" className="p-2 bg-slate-800 rounded-lg cursor-pointer text-sm">📷</label>
+                <input 
+                  type="text" 
+                  placeholder="Écrivez un message..." 
+                  className="flex-1 bg-slate-800 border border-slate-700 px-3 py-2 text-xs rounded-lg focus:outline-none text-white"
+                  value={newMessage}
+                  onChange={e => setNewMessage(e.target.value)}
+                />
+                <button type="submit" className="px-4 py-2 bg-indigo-600 rounded-lg text-xs font-medium text-white">Envoyer</button>
+              </form>
+            </div>
+          )}
+
+          {activeTab === 'blog' && (
+            <div className="flex-1 p-4 overflow-y-auto bg-slate-900">
+              <div className="max-w-2xl mx-auto">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold">Articles de Blogue</h2>
+                  <button onClick={() => setShowBlogModal(true)} className="px-3 py-1.5 bg-indigo-600 rounded-lg text-xs font-semibold text-white">+ Écrire</button>
+                </div>
+
+                <div className="space-y-4">
+                  {blogs.map(b => (
+                    <div key={b.id} className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 p-4">
+                      {b.image && <img src={b.image} className="w-full h-40 object-cover rounded-lg mb-3" />}
+                      <h3 className="font-bold text-base mb-1">{b.title}</h3>
+                      <p className="text-[10px] text-slate-400 mb-2">Par {b.author} • {b.date}</p>
+                      <p className="text-slate-300 text-xs">{b.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showBlogModal && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+              <div className="bg-slate-800 p-5 rounded-xl w-full max-w-sm border border-slate-700 space-y-3">
+                <h3 className="text-lg font-bold">Créer un article</h3>
+                <form onSubmit={handleAddBlog} className="space-y-3">
+                  <input type="text" placeholder="Titre" required className="w-full bg-slate-900 p-2 rounded text-xs border border-slate-700 text-white" value={newBlogTitle} onChange={e => setNewBlogTitle(e.target.value)} />
+                  <input type="url" placeholder="Lien d'image (optionnel)" className="w-full bg-slate-900 p-2 rounded text-xs border border-slate-700 text-white" value={newBlogImage} onChange={e => setNewBlogImage(e.target.value)} />
+                  <textarea placeholder="Contenu..." required className="w-full bg-slate-900 p-2 rounded text-xs border border-slate-700 h-24 text-white" value={newBlogContent} onChange={e => setNewBlogContent(e.target.value)}></textarea>
+                  <div className="flex justify-end space-x-2">
+                    <button type="button" onClick={() => setShowBlogModal(false)} className="px-3 py-1.5 bg-slate-700 text-xs rounded">Annuler</button>
+                    <button type="submit" className="px-3 py-1.5 bg-indigo-600 text-xs rounded text-white">Publier</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {zoomImage && (
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50" onClick={() => setZoomImage(null)}>
+              <img src={zoomImage} className="max-w-full max-h-full rounded-lg" />
+            </div>
+          )}
         </div>
       );
     }
