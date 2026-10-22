@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Emmanuel Dimension - Blog & Discussion</title>
+  <title>Emmanuel Dimension - Plateforme Communautaire</title>
   <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -11,8 +11,15 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Scrollbar personnalisée */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -24,34 +31,50 @@
     ];
 
     const CHANNELS = [
-      { id: 'general', name: '# Général' },
-      { id: 'annonces', name: '📢 Annonces' },
-      { id: 'media', name: '📷 Photos & Médias' }
+      { id: 'general', name: '💬 Général', desc: 'Discussions libres' },
+      { id: 'annonces', name: '📢 Annonces', desc: 'Nouveautés & Informations' },
+      { id: 'media', name: '📷 Photos & Médias', desc: 'Partage de souvenirs' }
     ];
+
+    // Logo composant
+    function AppLogo({ size = "md" }) {
+      const sizes = {
+        sm: "w-8 h-8 text-xs",
+        md: "w-10 h-10 text-sm",
+        lg: "w-16 h-16 text-xl"
+      };
+      return (
+        <div className={`${sizes[size]} bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 rounded-xl flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/20 tracking-wider`}>
+          ED
+        </div>
+      );
+    }
 
     function App() {
       const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('ed_user')) || null);
-      const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'blog' | 'profile'
+      const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'chat' | 'blog' | 'profile'
       const [currentChannel, setCurrentChannel] = useState('general');
       
-      // Auth State
-      const [isRegister, setIsRegister] = useState(false);
+      // Auth States
+      const [authMode, setAuthMode] = useState('login'); // 'login' | 'register' | 'forgot'
       const [email, setEmail] = useState('');
       const [password, setPassword] = useState('');
       const [confirmPassword, setConfirmPassword] = useState('');
       const [username, setUsername] = useState('');
+      const [showPassword, setShowPassword] = useState(false);
       const [authError, setAuthError] = useState('');
+      const [authSuccess, setAuthSuccess] = useState('');
 
       // Data States
       const [users, setUsers] = useState(() => JSON.parse(localStorage.getItem('ed_users')) || []);
       const [messages, setMessages] = useState(() => JSON.parse(localStorage.getItem('ed_messages')) || [
-        { id: 1, channelId: 'general', sender: 'Admin', text: 'Bienvenue sur la communauté Emmanuel Dimension !', photo: null, audio: null, time: '12:00', reactions: {}, replyTo: null }
+        { id: 1, channelId: 'general', sender: 'Admin', text: 'Bienvenue sur Emmanuel Dimension ! Explorez le tableau de bord.', photo: null, audio: null, time: '12:00', reactions: {} }
       ]);
       const [blogs, setBlogs] = useState(() => JSON.parse(localStorage.getItem('ed_blogs')) || [
-        { id: 1, title: 'Bienvenue sur Emmanuel Dimension', content: 'Ceci est le premier article de notre communauté.', author: 'Admin', date: '2026-10-22' }
+        { id: 1, title: 'Bienvenue sur Emmanuel Dimension', content: 'Découvrez notre toute nouvelle interface moderne !', author: 'Admin', date: '2026-10-22', likes: 5 }
       ]);
 
-      // Chat inputs & states
+      // Chat Input
       const [newMessage, setNewMessage] = useState('');
       const [selectedImage, setSelectedImage] = useState(null);
       const [replyingTo, setReplyingTo] = useState(null);
@@ -62,7 +85,7 @@
       const [mediaRecorder, setMediaRecorder] = useState(null);
       const audioChunksRef = useRef([]);
 
-      // Profile Form State
+      // Profile Form
       const [editBio, setEditBio] = useState(user?.bio || '');
       const [editUsername, setEditUsername] = useState(user?.username || '');
 
@@ -73,6 +96,9 @@
       const [showBlogModal, setShowBlogModal] = useState(false);
 
       const chatEndRef = useRef(null);
+
+      // Membres en ligne simulés
+      const onlineCount = Math.max(1, users.length > 0 ? Math.floor(users.length * 0.7) + 1 : 1);
 
       useEffect(() => {
         localStorage.setItem('ed_user', JSON.stringify(user));
@@ -99,9 +125,30 @@
       const handleAuth = (e) => {
         e.preventDefault();
         setAuthError('');
+        setAuthSuccess('');
 
         if (!email.includes('@')) {
           setAuthError('Veuillez entrer une adresse e-mail valide.');
+          return;
+        }
+
+        if (authMode === 'forgot') {
+          const foundIndex = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+          if (foundIndex === -1) {
+            setAuthError('Aucun compte trouvé avec cette adresse e-mail.');
+            return;
+          }
+          if (password.length < 6) {
+            setAuthError('Le nouveau mot de passe doit contenir au moins 6 caractères.');
+            return;
+          }
+          const updatedUsers = [...users];
+          updatedUsers[foundIndex].password = password;
+          setUsers(updatedUsers);
+          localStorage.setItem('ed_users', JSON.stringify(updatedUsers));
+          setAuthSuccess('Votre mot de passe a été réinitialisé avec succès ! Connectez-vous.');
+          setAuthMode('login');
+          setPassword('');
           return;
         }
 
@@ -115,7 +162,7 @@
           return;
         }
 
-        if (isRegister) {
+        if (authMode === 'register') {
           if (password !== confirmPassword) {
             setAuthError('Les mots de passe ne correspondent pas.');
             return;
@@ -125,20 +172,20 @@
             return;
           }
 
-          const existing = users.find(u => u.email === email);
+          const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase());
           if (existing) {
             setAuthError('Cet e-mail est déjà utilisé.');
             return;
           }
 
-          const isAdminUser = users.length === 0; // Premier utilisateur = Admin
-          const newUser = { id: Date.now(), email, password, username, bio: 'Membre passionné d\'Emmanuel Dimension', isAdmin: isAdminUser };
+          const isAdminUser = users.length === 0;
+          const newUser = { id: Date.now(), email, password, username, bio: 'Membre d\'Emmanuel Dimension', isAdmin: isAdminUser };
           const updatedUsers = [...users, newUser];
           setUsers(updatedUsers);
           localStorage.setItem('ed_users', JSON.stringify(updatedUsers));
           setUser(newUser);
         } else {
-          const found = users.find(u => u.email === email && u.password === password);
+          const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
           if (!found) {
             setAuthError('E-mail ou mot de passe incorrect.');
             return;
@@ -156,7 +203,6 @@
         }
       };
 
-      // Voice recording logic
       const startRecording = async () => {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -178,7 +224,7 @@
           setMediaRecorder(recorder);
           setIsRecording(true);
         } catch (err) {
-          alert("Accès au micro refusé ou indisponible.");
+          alert("Accès au micro refusé.");
         }
       };
 
@@ -262,7 +308,8 @@
           content: newBlogContent,
           image: newBlogImage || 'https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=600',
           author: user.username,
-          date: new Date().toISOString().split('T')[0]
+          date: new Date().toISOString().split('T')[0],
+          likes: 0
         };
 
         setBlogs([article, ...blogs]);
@@ -277,74 +324,116 @@
         const updated = { ...user, username: editUsername, bio: editBio };
         setUser(updated);
         setUsers(users.map(u => u.id === user.id ? updated : u));
-        alert("Profil mis à jour avec succès !");
+        alert("Profil mis à jour !");
       };
 
+      // Formulaire de Connexion / Inscription / Mot de passe oublié
       if (!user) {
         return (
-          <div className="flex items-center justify-center min-h-screen p-4 bg-slate-950">
-            <div className="w-full max-w-md bg-slate-900 p-8 rounded-2xl shadow-xl border border-slate-800">
-              <div className="text-center mb-6">
-                <h1 className="text-3xl font-bold text-indigo-400">Emmanuel Dimension</h1>
-                <p className="text-slate-400 text-sm mt-1">Espace Membres & Canal Communautaire</p>
+          <div className="flex items-center justify-center min-h-screen p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/40 via-slate-950 to-slate-950">
+            <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-slate-800/80 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+              
+              <div className="flex flex-col items-center text-center mb-6">
+                <AppLogo size="lg" />
+                <h1 className="text-2xl font-black tracking-tight text-white mt-3">Emmanuel Dimension</h1>
+                <p className="text-slate-400 text-xs mt-1">Espace Membres & Communauté</p>
               </div>
 
               {authError && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-xs text-center">
-                  {authError}
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs text-center flex justify-between items-center">
+                  <span>{authError}</span>
+                  <button onClick={() => setAuthError('')} className="text-red-400 hover:text-white font-bold ml-2">✕</button>
+                </div>
+              )}
+
+              {authSuccess && (
+                <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs text-center flex justify-between items-center">
+                  <span>{authSuccess}</span>
+                  <button onClick={() => setAuthSuccess('')} className="text-emerald-400 hover:text-white font-bold ml-2">✕</button>
                 </div>
               )}
 
               <form onSubmit={handleAuth} className="space-y-4">
-                {isRegister && (
+                {authMode === 'register' && (
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1">Nom d'utilisateur</label>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Nom d'utilisateur</label>
                     <input 
                       type="text" required
-                      className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:outline-none focus:border-indigo-500 text-white"
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800 focus:outline-none focus:border-indigo-500 text-white text-sm"
                       value={username} onChange={e => setUsername(e.target.value)}
-                    />
-                  </div>
-                )}
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Adresse E-mail</label>
-                  <input 
-                    type="email" required
-                    className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:outline-none focus:border-indigo-500 text-white"
-                    value={email} onChange={e => setEmail(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Mot de passe</label>
-                  <input 
-                    type="password" required
-                    className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:outline-none focus:border-indigo-500 text-white"
-                    value={password} onChange={e => setPassword(e.target.value)}
-                  />
-                </div>
-                {isRegister && (
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">Confirmer le mot de passe</label>
-                    <input 
-                      type="password" required
-                      className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:outline-none focus:border-indigo-500 text-white"
-                      value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="Ex: Emmanuel"
                     />
                   </div>
                 )}
 
-                <button type="submit" className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 font-semibold rounded-lg transition text-white">
-                  {isRegister ? "S'inscrire" : "Se connecter"}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Adresse E-mail</label>
+                  <input 
+                    type="email" required
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800 focus:outline-none focus:border-indigo-500 text-white text-sm"
+                    value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="nom@exemple.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">
+                    {authMode === 'forgot' ? 'Nouveau mot de passe' : 'Mot de passe'}
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type={showPassword ? "text" : "password"} required
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800 focus:outline-none focus:border-indigo-500 text-white text-sm pr-10"
+                      value={password} onChange={e => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 text-xs"
+                    >
+                      {showPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
+
+                {authMode === 'register' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Confirmer le mot de passe</label>
+                    <input 
+                      type={showPassword ? "text" : "password"} required
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800 focus:outline-none focus:border-indigo-500 text-white text-sm"
+                      value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                  </div>
+                )}
+
+                <button type="submit" className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl transition shadow-lg shadow-indigo-600/25 text-sm">
+                  {authMode === 'login' && "Se connecter"}
+                  {authMode === 'register' && "Créer un compte"}
+                  {authMode === 'forgot' && "Réinitialiser le mot de passe"}
                 </button>
               </form>
 
-              <div className="mt-6 text-center">
-                <button 
-                  onClick={() => { setIsRegister(!isRegister); setAuthError(''); }} 
-                  className="text-xs text-indigo-400 hover:underline"
-                >
-                  {isRegister ? "Déjà un compte ? Connexion" : "Pas de compte ? S'inscrire"}
-                </button>
+              <div className="mt-6 flex flex-col items-center space-y-2 text-xs">
+                {authMode === 'login' && (
+                  <>
+                    <button onClick={() => { setAuthMode('forgot'); setAuthError(''); }} className="text-slate-400 hover:text-indigo-400">
+                      Mot de passe oublié ?
+                    </button>
+                    <button onClick={() => { setAuthMode('register'); setAuthError(''); }} className="text-indigo-400 hover:underline font-semibold">
+                      Pas de compte ? S'inscrire
+                    </button>
+                  </>
+                )}
+
+                {authMode !== 'login' && (
+                  <button onClick={() => { setAuthMode('login'); setAuthError(''); }} className="text-indigo-400 hover:underline font-semibold">
+                    ← Retour à la connexion
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -355,72 +444,151 @@
 
       return (
         <div className="flex flex-col h-screen">
-          {/* Header */}
-          <header className="bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold text-indigo-400">Emmanuel Dimension</span>
-              {user.isAdmin && <span className="bg-indigo-900 text-indigo-300 text-[10px] px-2 py-0.5 rounded font-semibold">ADMIN</span>}
+          {/* Header principal */}
+          <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+            <div className="flex items-center space-x-3">
+              <AppLogo size="sm" />
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="font-extrabold text-sm text-white tracking-tight">Emmanuel Dimension</span>
+                  {user.isAdmin && <span className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[9px] px-1.5 py-0.5 rounded font-black tracking-wider">ADMIN</span>}
+                </div>
+                {/* Nombre de personnes connectées */}
+                <div className="flex items-center space-x-1.5 text-[10px] text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>{onlineCount} membre{onlineCount > 1 ? 's' : ''} en ligne</span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            {/* Menu de navigation mobile & desktop */}
+            <div className="flex items-center space-x-1.5">
+              <button 
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+              >
+                📊 Tableau de bord
+              </button>
               <button 
                 onClick={() => setActiveTab('chat')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${activeTab === 'chat' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === 'chat' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
               >
-                Discussion
+                💬 Chat
               </button>
               <button 
                 onClick={() => setActiveTab('blog')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${activeTab === 'blog' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === 'blog' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
               >
-                Blogue
+                📝 Blogue
               </button>
               <button 
                 onClick={() => setActiveTab('profile')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${activeTab === 'profile' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
               >
-                Profil
+                👤 Profil
               </button>
-              <button onClick={() => setUser(null)} className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-[10px] rounded-lg text-red-300">
-                Sortir
+              <button onClick={() => setUser(null)} className="px-2.5 py-1.5 bg-slate-800 hover:bg-red-900/50 text-[10px] font-bold rounded-xl text-red-400 border border-slate-700 hover:border-red-500/50 transition ml-2">
+                Déconnexion
               </button>
             </div>
           </header>
 
-          {/* Chat View */}
+          {/* 📊 TABLEAU DE BORD (DASHBOARD) */}
+          {activeTab === 'dashboard' && (
+            <div className="flex-1 p-6 overflow-y-auto bg-slate-950">
+              <div className="max-w-4xl mx-auto space-y-6">
+                
+                {/* Banner de bienvenue */}
+                <div className="bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900 p-6 rounded-3xl border border-indigo-500/20 shadow-2xl relative overflow-hidden">
+                  <div className="relative z-10">
+                    <h2 className="text-2xl font-black text-white">Ravi de vous voir, {user.username} 👋</h2>
+                    <p className="text-slate-300 text-xs mt-1 max-w-xl">
+                      Bienvenue sur le tableau de bord d'Emmanuel Dimension. Naviguez entre les canaux de discussion, publiez sur le blogue ou personnalisez votre profil.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Cartes statistiques */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800/80">
+                    <div className="text-slate-400 text-xs font-semibold">Membres en ligne</div>
+                    <div className="text-2xl font-black text-emerald-400 mt-1 flex items-center space-x-2">
+                      <span>{onlineCount}</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800/80">
+                    <div className="text-slate-400 text-xs font-semibold">Total Messages</div>
+                    <div className="text-2xl font-black text-indigo-400 mt-1">{messages.length}</div>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800/80">
+                    <div className="text-slate-400 text-xs font-semibold">Articles Publiés</div>
+                    <div className="text-2xl font-black text-purple-400 mt-1">{blogs.length}</div>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800/80">
+                    <div className="text-slate-400 text-xs font-semibold">Votre Rôle</div>
+                    <div className="text-lg font-bold text-pink-400 mt-1">{user.isAdmin ? '👑 Admin' : '👤 Membre'}</div>
+                  </div>
+                </div>
+
+                {/* Accès rapide aux canaux */}
+                <div>
+                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Accès rapide aux Canaux</h3>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {CHANNELS.map(ch => (
+                      <div 
+                        key={ch.id}
+                        onClick={() => { setCurrentChannel(ch.id); setActiveTab('chat'); }}
+                        className="bg-slate-900/60 hover:bg-slate-800/80 p-4 rounded-2xl border border-slate-800/80 cursor-pointer transition group"
+                      >
+                        <div className="font-bold text-white group-hover:text-indigo-400 text-sm">{ch.name}</div>
+                        <div className="text-slate-400 text-xs mt-1">{ch.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* 💬 TCHAT & CANAUX */}
           {activeTab === 'chat' && (
             <div className="flex-1 flex flex-col md:flex-row bg-slate-950 overflow-hidden">
-              {/* Channel Selector Sidebar */}
-              <div className="bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 p-2 flex md:flex-col space-x-2 md:space-x-0 md:space-y-1 w-full md:w-56">
-                <div className="text-[10px] font-bold text-slate-500 uppercase px-2 py-1 hidden md:block">Canaux</div>
+              {/* Sidebar Canaux */}
+              <div className="bg-slate-900/50 border-b md:border-b-0 md:border-r border-slate-800/80 p-3 flex md:flex-col space-x-2 md:space-x-0 md:space-y-1 w-full md:w-60">
+                <div className="text-[10px] font-bold text-slate-500 uppercase px-2 py-1 hidden md:block tracking-wider">Canaux de discussion</div>
                 {CHANNELS.map(ch => (
                   <button 
                     key={ch.id} 
                     onClick={() => setCurrentChannel(ch.id)} 
-                    className={`flex-1 md:flex-none text-left px-3 py-1.5 rounded-lg text-xs font-medium ${currentChannel === ch.id ? 'bg-slate-800 text-indigo-400' : 'text-slate-400 hover:bg-slate-800/50'}`}
+                    className={`flex-1 md:flex-none text-left px-3 py-2 rounded-xl text-xs font-semibold transition ${currentChannel === ch.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:bg-slate-800/50'}`}
                   >
                     {ch.name}
                   </button>
                 ))}
               </div>
 
-              {/* Chat Content */}
+              {/* Zone de Messages */}
               <div className="flex-1 flex flex-col overflow-hidden">
                 <div className="flex-1 p-4 overflow-y-auto space-y-4">
                   {channelMessages.map((m) => {
                     const isMe = m.sender === user.username;
                     return (
                       <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs md:max-w-md p-3 rounded-2xl relative group ${isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-100 rounded-bl-none'}`}>
+                        <div className={`max-w-xs md:max-w-md p-3.5 rounded-2xl relative group shadow-md ${isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-100 rounded-bl-none'}`}>
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-[10px] font-semibold text-indigo-200">{m.sender}</span>
-                            { (isMe || user.isAdmin) && (
-                              <button onClick={() => handleDeleteMessage(m.id)} className="text-[10px] text-red-400 opacity-0 group-hover:opacity-100 transition">✕</button>
+                            <span className="text-[10px] font-extrabold text-indigo-300">{m.sender}</span>
+                            {(isMe || user.isAdmin) && (
+                              <button onClick={() => handleDeleteMessage(m.id)} className="text-slate-400 hover:text-red-400 font-bold text-xs opacity-0 group-hover:opacity-100 transition">✕</button>
                             )}
                           </div>
 
                           {m.replyTo && (
-                            <div className="mb-2 p-2 rounded bg-black/20 text-[10px] border-l-2 border-indigo-300">
+                            <div className="mb-2 p-2 rounded-lg bg-black/20 text-[10px] border-l-2 border-indigo-400">
                               <span className="font-bold">{m.replyTo.sender}: </span>
                               <span>{m.replyTo.text || 'Photo/Audio'}</span>
                             </div>
@@ -430,7 +598,7 @@
                             <img 
                               src={m.photo} 
                               onClick={() => setZoomImage(m.photo)} 
-                              className="rounded-lg mb-2 max-h-48 object-cover cursor-pointer"
+                              className="rounded-xl mb-2 max-h-52 object-cover cursor-pointer hover:opacity-90 transition"
                             />
                           )}
 
@@ -438,9 +606,8 @@
                             <audio controls src={m.audio} className="mb-2 w-full max-w-[200px] h-8" />
                           )}
 
-                          {m.text && <p className="text-xs">{m.text}</p>}
+                          {m.text && <p className="text-xs leading-relaxed">{m.text}</p>}
 
-                          {/* Reactions & Reply */}
                           <div className="flex items-center justify-between mt-2 pt-1 border-t border-white/10 text-[10px]">
                             <div className="flex space-x-1">
                               {['❤️', '👍', '😂', '🔥'].map(emoji => (
@@ -449,10 +616,10 @@
                                 </button>
                               ))}
                             </div>
-                            <button onClick={() => setReplyingTo(m)} className="text-indigo-200 hover:underline text-[9px]">Répondre</button>
+                            <button onClick={() => setReplyingTo(m)} className="text-indigo-200 hover:underline font-semibold text-[9px]">Répondre</button>
                           </div>
 
-                          <div className="text-[9px] opacity-70 text-right mt-1">{m.time}</div>
+                          <div className="text-[9px] opacity-60 text-right mt-1">{m.time}</div>
                         </div>
                       </div>
                     );
@@ -461,62 +628,70 @@
                 </div>
 
                 {replyingTo && (
-                  <div className="p-2 bg-slate-900 border-t border-slate-800 flex justify-between items-center text-xs">
+                  <div className="p-2 bg-slate-900 border-t border-slate-800 flex justify-between items-center text-xs px-4">
                     <span className="text-slate-400">Réponse à <strong className="text-indigo-400">{replyingTo.sender}</strong></span>
-                    <button onClick={() => setReplyingTo(null)} className="text-red-400">✕</button>
+                    <button onClick={() => setReplyingTo(null)} className="text-red-400 font-bold hover:text-white">✕</button>
                   </div>
                 )}
 
                 {selectedImage && (
-                  <div className="p-2 bg-slate-900 border-t border-slate-800 flex items-center space-x-2">
-                    <img src={selectedImage} className="w-10 h-10 object-cover rounded" />
-                    <button onClick={() => setSelectedImage(null)} className="text-red-400 text-xs">Supprimer</button>
+                  <div className="p-2 bg-slate-900 border-t border-slate-800 flex items-center justify-between px-4">
+                    <div className="flex items-center space-x-2">
+                      <img src={selectedImage} className="w-10 h-10 object-cover rounded-lg" />
+                      <span className="text-xs text-slate-400">Photo sélectionnée</span>
+                    </div>
+                    <button onClick={() => setSelectedImage(null)} className="text-red-400 font-bold hover:text-white text-xs">✕</button>
                   </div>
                 )}
 
-                {/* Send Bar */}
-                <form onSubmit={handleSendMessage} className="p-3 bg-slate-900 border-t border-slate-800 flex items-center space-x-2">
+                {/* Barre d'envoi */}
+                <form onSubmit={handleSendMessage} className="p-3 bg-slate-900/90 border-t border-slate-800/80 flex items-center space-x-2">
                   <input type="file" accept="image/*" onChange={handleImageUpload} id="img-upload" className="hidden" />
-                  <label htmlFor="img-upload" className="p-2 bg-slate-800 rounded-lg cursor-pointer text-sm hover:bg-slate-700">📷</label>
+                  <label htmlFor="img-upload" className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl cursor-pointer text-sm transition">📷</label>
                   
                   {isRecording ? (
-                    <button type="button" onClick={stopRecording} className="px-3 py-2 bg-red-600 rounded-lg text-xs animate-pulse text-white">🔴 Arrêter</button>
+                    <button type="button" onClick={stopRecording} className="px-3 py-2 bg-red-600 rounded-xl text-xs font-bold animate-pulse text-white">🔴 Arrêter</button>
                   ) : (
-                    <button type="button" onClick={startRecording} className="p-2 bg-slate-800 rounded-lg text-sm hover:bg-slate-700">🎙️</button>
+                    <button type="button" onClick={startRecording} className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm transition">🎙️</button>
                   )}
 
                   <input 
                     type="text" 
-                    placeholder="Message..." 
-                    className="flex-1 bg-slate-800 border border-slate-700 px-3 py-2 text-xs rounded-lg focus:outline-none text-white"
+                    placeholder="Écrivez un message..." 
+                    className="flex-1 bg-slate-950 border border-slate-800 px-4 py-2.5 text-xs rounded-xl focus:outline-none focus:border-indigo-500 text-white"
                     value={newMessage}
                     onChange={e => setNewMessage(e.target.value)}
                   />
-                  <button type="submit" className="px-4 py-2 bg-indigo-600 rounded-lg text-xs font-medium text-white hover:bg-indigo-500">Envoyer</button>
+                  <button type="submit" className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition">Envoyer</button>
                 </form>
               </div>
             </div>
           )}
 
-          {/* Blog View */}
+          {/* 📝 BLOGUE */}
           {activeTab === 'blog' && (
-            <div className="flex-1 p-4 overflow-y-auto bg-slate-900">
-              <div className="max-w-2xl mx-auto">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold">Articles de Blogue</h2>
-                  <button onClick={() => setShowBlogModal(true)} className="px-3 py-1.5 bg-indigo-600 rounded-lg text-xs font-semibold text-white">+ Écrire</button>
+            <div className="flex-1 p-6 overflow-y-auto bg-slate-950">
+              <div className="max-w-3xl mx-auto space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-black text-white">Blogue Emmanuel Dimension</h2>
+                    <p className="text-xs text-slate-400 mt-1">Partagez vos réflexions avec la communauté</p>
+                  </div>
+                  <button onClick={() => setShowBlogModal(true)} className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl text-xs font-bold text-white shadow-lg shadow-indigo-600/25 transition">
+                    + Écrire un article
+                  </button>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {blogs.map(b => (
-                    <div key={b.id} className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 p-4 relative group">
-                      { (b.author === user.username || user.isAdmin) && (
-                        <button onClick={() => handleDeleteBlog(b.id)} className="absolute top-3 right-3 bg-red-600/80 hover:bg-red-600 text-white text-xs px-2 py-1 rounded">Supprimer</button>
+                    <div key={b.id} className="bg-slate-900/80 rounded-2xl overflow-hidden border border-slate-800/80 p-5 relative group shadow-xl">
+                      {(b.author === user.username || user.isAdmin) && (
+                        <button onClick={() => handleDeleteBlog(b.id)} className="absolute top-4 right-4 bg-red-600/80 hover:bg-red-600 text-white text-xs px-2.5 py-1 rounded-lg font-bold transition">✕ Supprimer</button>
                       )}
-                      {b.image && <img src={b.image} className="w-full h-40 object-cover rounded-lg mb-3" />}
-                      <h3 className="font-bold text-base mb-1">{b.title}</h3>
-                      <p className="text-[10px] text-slate-400 mb-2">Par {b.author} • {b.date}</p>
-                      <p className="text-slate-300 text-xs">{b.content}</p>
+                      {b.image && <img src={b.image} className="w-full h-48 object-cover rounded-xl mb-4" />}
+                      <h3 className="font-extrabold text-lg text-white mb-1">{b.title}</h3>
+                      <p className="text-[10px] text-slate-400 mb-3">Par <strong className="text-indigo-400">{b.author}</strong> • {b.date}</p>
+                      <p className="text-slate-300 text-xs leading-relaxed">{b.content}</p>
                     </div>
                   ))}
                 </div>
@@ -524,59 +699,71 @@
             </div>
           )}
 
-          {/* Profile View */}
+          {/* 👤 PROFIL */}
           {activeTab === 'profile' && (
             <div className="flex-1 p-6 overflow-y-auto bg-slate-950 flex justify-center items-center">
-              <div className="w-full max-w-md bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
-                <h2 className="text-xl font-bold text-indigo-400 text-center">Mon Profil</h2>
+              <div className="w-full max-w-md bg-slate-900/80 p-6 rounded-3xl border border-slate-800/80 shadow-2xl space-y-6">
+                <div className="flex flex-col items-center text-center">
+                  <AppLogo size="lg" />
+                  <h2 className="text-xl font-bold text-white mt-3">{user.username}</h2>
+                  <p className="text-xs text-indigo-400 font-semibold">{user.isAdmin ? '👑 Administrateur' : '👤 Membre'}</p>
+                </div>
+
                 <form onSubmit={handleSaveProfile} className="space-y-4">
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1">Nom d'utilisateur</label>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Nom d'utilisateur</label>
                     <input 
                       type="text" required
-                      className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-xs text-white"
+                      className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
                       value={editUsername} onChange={e => setEditUsername(e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1">Biographie / Statut</label>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Biographie / Statut</label>
                     <textarea 
-                      className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-xs text-white h-20"
+                      className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 h-20"
                       value={editBio} onChange={e => setEditBio(e.target.value)}
                     ></textarea>
                   </div>
-                  <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 text-xs text-slate-400 space-y-1">
+                  <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/80 text-xs text-slate-400 space-y-1">
                     <p><strong>E-mail :</strong> {user.email}</p>
                     <p><strong>Statut :</strong> {user.isAdmin ? 'Administrateur' : 'Membre'}</p>
                   </div>
-                  <button type="submit" className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-semibold text-white">Enregistrer</button>
+                  <button type="submit" className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl text-xs font-bold text-white shadow-md shadow-indigo-600/30">Enregistrer les modifications</button>
                 </form>
               </div>
             </div>
           )}
 
-          {/* Modal Article */}
+          {/* ✖️ MODALE ÉCRIRE UN ARTICLE (avec petite croix de fermeture) */}
           {showBlogModal && (
-            <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-              <div className="bg-slate-800 p-5 rounded-xl w-full max-w-sm border border-slate-700 space-y-3">
-                <h3 className="text-lg font-bold">Créer un article</h3>
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-slate-900 p-6 rounded-3xl w-full max-w-md border border-slate-800 space-y-4 relative shadow-2xl">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                  <h3 className="text-lg font-bold text-white">Créer un article</h3>
+                  {/* Petite croix pour fermer */}
+                  <button onClick={() => setShowBlogModal(false)} className="text-slate-400 hover:text-white font-bold text-lg p-1">✕</button>
+                </div>
+                
                 <form onSubmit={handleAddBlog} className="space-y-3">
-                  <input type="text" placeholder="Titre" required className="w-full bg-slate-900 p-2 rounded text-xs border border-slate-700 text-white" value={newBlogTitle} onChange={e => setNewBlogTitle(e.target.value)} />
-                  <input type="url" placeholder="Lien d'image (optionnel)" className="w-full bg-slate-900 p-2 rounded text-xs border border-slate-700 text-white" value={newBlogImage} onChange={e => setNewBlogImage(e.target.value)} />
-                  <textarea placeholder="Contenu..." required className="w-full bg-slate-900 p-2 rounded text-xs border border-slate-700 h-24 text-white" value={newBlogContent} onChange={e => setNewBlogContent(e.target.value)}></textarea>
-                  <div className="flex justify-end space-x-2">
-                    <button type="button" onClick={() => setShowBlogModal(false)} className="px-3 py-1.5 bg-slate-700 text-xs rounded">Annuler</button>
-                    <button type="submit" className="px-3 py-1.5 bg-indigo-600 text-xs rounded text-white">Publier</button>
+                  <input type="text" placeholder="Titre de l'article" required className="w-full bg-slate-950 p-3 rounded-xl text-xs border border-slate-800 text-white focus:outline-none focus:border-indigo-500" value={newBlogTitle} onChange={e => setNewBlogTitle(e.target.value)} />
+                  <input type="url" placeholder="Lien de l'image (optionnel)" className="w-full bg-slate-950 p-3 rounded-xl text-xs border border-slate-800 text-white focus:outline-none focus:border-indigo-500" value={newBlogImage} onChange={e => setNewBlogImage(e.target.value)} />
+                  <textarea placeholder="Contenu de votre article..." required className="w-full bg-slate-950 p-3 rounded-xl text-xs border border-slate-800 h-28 text-white focus:outline-none focus:border-indigo-500" value={newBlogContent} onChange={e => setNewBlogContent(e.target.value)}></textarea>
+                  <div className="flex justify-end space-x-2 pt-2">
+                    <button type="button" onClick={() => setShowBlogModal(false)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs rounded-xl font-semibold">Annuler</button>
+                    <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs rounded-xl font-bold text-white shadow-md shadow-indigo-600/30">Publier</button>
                   </div>
                 </form>
               </div>
             </div>
           )}
 
-          {/* Zoom Image Modal */}
+          {/* ✖️ MODALE ZOOM PHOTO (avec petite croix de fermeture) */}
           {zoomImage && (
-            <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50" onClick={() => setZoomImage(null)}>
-              <img src={zoomImage} className="max-w-full max-h-full rounded-lg" />
+            <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-50 relative" onClick={() => setZoomImage(null)}>
+              {/* Croix de fermeture */}
+              <button onClick={() => setZoomImage(null)} className="absolute top-5 right-5 text-white font-black text-2xl bg-slate-800/80 w-10 h-10 rounded-full flex items-center justify-center border border-slate-700">✕</button>
+              <img src={zoomImage} className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain" />
             </div>
           )}
         </div>
