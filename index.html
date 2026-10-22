@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emmanuel Dimension</title>
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel pour compiler JSX dans le navigateur -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Tailwind CSS pour le style -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      return (
+        <div class="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+          <h1 class="text-4xl font-bold text-indigo-500 mb-4">Emmanuel Dimension</h1>
+          <p class="text-gray-300 max-w-md mb-6">
+            Bienvenue sur la plateforme officielle Emmanuel Dimension ! Le blogue et le canal de discussion sont en cours d'initialisation.
+          </p>
+          <div class="p-4 bg-gray-800 rounded-lg border border-gray-700">
+            <p class="text-green-400 font-semibold">✓ Déploiement Vercel réussi !</p>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
